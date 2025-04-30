@@ -1,0 +1,38 @@
+ARG PG_MAJOR=16
+
+FROM postgres:$PG_MAJOR
+ARG PG_MAJOR
+
+RUN apt-get update && \
+		apt-mark hold locales && \
+		apt-get install -y --no-install-recommends git flex bison build-essential ca-certificates postgresql-plpython3-$PG_MAJOR postgresql-server-dev-$PG_MAJOR
+
+RUN git clone --branch v0.8.0 https://github.com/pgvector/pgvector.git /tmp/pgvector && \
+		cd /tmp/pgvector && \
+		make clean && \
+		make OPTFLAGS="" && \
+		make install && \
+		mkdir /usr/share/doc/pgvector && \
+		cp LICENSE README.md /usr/share/doc/pgvector && \
+        rm -r /tmp/pgvector
+
+RUN git clone https://github.com/apache/incubator-age /tmp/age && \
+        cd /tmp/age && \
+        make && \
+        make install && \
+        rm -r /tmp/age
+
+RUN apt-get remove -y build-essential git flex bison postgresql-plpython3-$PG_MAJOR postgresql-server-dev-$PG_MAJOR && \
+		apt-get autoremove -y && \
+		apt-mark unhold locales && \
+		rm -rf /var/lib/apt/lists/*
+
+RUN echo "en_US.UTF-8 UTF-8" > /etc/locale.gen \
+    && locale-gen \
+    && update-locale LANG=en_US.UTF-8
+
+ENV LANG=en_US.UTF-8
+ENV LC_COLLATE=en_US.UTF-8
+ENV LC_CTYPE=en_US.UTF-8
+
+CMD ["postgres", "-c", "shared_preload_libraries=age"]
